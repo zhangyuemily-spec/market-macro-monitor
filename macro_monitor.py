@@ -1,78 +1,77 @@
 import yfinance as yf
 import requests
-import os
+import ssl
+# 适配云端SSL
+ssl._create_default_https_context = ssl._create_unverified_context
 
-# 从GitHub的Secret读取密钥，不要写在这里！
-SENDKEY = os.getenv("SERVER_SENDKEY")
+# ===================== 【这里修改你的阈值】=====================
+THRESHOLD = {
+    "VIX": 28,          # VIX>28 触发警报
+    "US10Y": 4.8,       # 10年期美债收益率>4.8
+    "USDJPY_UP": 160,   # USDJPY突破160，日元偏弱，留意干预预期
+    "USDJPY_DROP": 152, # USDJPY跌到152以下 = 日元快速大涨，套息平仓红色警报
+    "BRENT_OIL": 110    # 布伦特原油高于110
+}
+SENDKEY = "YOUR_SENDKEY"  # ← 替换这里！你的Server酱密钥
+# ==============================================================
 
-# 风险阈值
-VIX_THRESHOLD = 28
-US10Y_THRESHOLD = 4.8
-USDJPY_HIGH = 160
-USDJPY_LOW = 152
-WTI_OIL = 92
-
-def send_wechat(msg):
+def send_wechat_alert(content):
     url = f"https://sctapi.ftqq.com/{SENDKEY}.send"
-    data = {"title":"宏观市场告警", "desp":msg}
+    params = {
+        "title": "【宏观监控告警】",
+        "desp": content
+    }
     try:
-        requests.post(url, data=data, timeout=15)
+        res = requests.get(url, params=params, timeout=10)
+        print("微信推送结果：", res.json())
     except Exception as e:
-        print("推送失败：", e)
+        print("推送失败", e)
 
-def run_monitor():
-    print("开始拉取宏观指标")
-    alert_list = []
+def fetch_data():
+    data = {}
     try:
-        # VIX恐慌指数
         vix = yf.Ticker("^VIX")
-        vix_data = vix.history(period="1d")
-        vix_price = vix_data["Close"].iloc[-1]
-        print(f"VIX={vix_price:.2f}")
-        if vix_price >= VIX_THRESHOLD:
-            alert_list.append(f"⚠️VIX恐慌指数触发 {vix_price:.2f}，超过阈值{VIX_THRESHOLD}")
-    except Exception as e:
-        print("VIX获取异常",e)
+        data["vix"] = vix.info.get("regularMarketPrice")
 
-    try:
-        # 美债10年期
         us10 = yf.Ticker("^TNX")
-        us10_data = us10.history(period="1d")
-        us10_price = us10_data["Close"].iloc[-1]
-        print(f"10Y美债收益率={us10_price:.2f}")
-        if us10_price >= US10Y_THRESHOLD:
-            alert_list.append(f"⚠️10年期美债触发 {us10_price:.2f}，超过阈值{US10Y_THRESHOLD}")
-    except Exception as e:
-        print("美债获取异常",e)
+        data["us10y"] = us10.info.get("regularMarketPrice")
 
-    try:
-        # USDJPY 美元兑日元
         usdjpy = yf.Ticker("USDJPY=X")
-        usdjpy_data = usdjpy.history(period="1d")
-        usdjpy_price = usdjpy_data["Close"].iloc[-1]
-        print(f"USDJPY={usdjpy_price:.2f}")
-        if usdjpy_price >= USDJPY_HIGH or usdjpy_price <= USDJPY_LOW:
-            alert_list.append(f"⚠️USDJPY触发 {usdjpy_price:.2f}，区间突破")
-    except Exception as e:
-        print("USDJPY获取异常",e)
+        data["usdjpy"] = usdjpy.info.get("regularMarketPrice")
 
-    try:
-        # WTI原油
-        wti = yf.Ticker("CL=F")
-        wti_data = wti.history(period="1d")
-        wti_price = wti_data["Close"].iloc[-1]
-        print(f"WTI原油={wti_price:.2f}")
-        if wti_price >= WTI_OIL:
-            alert_list.append(f"⚠️WTI原油触发 {wti_price:.2f}，超过阈值{WTI_OIL}")
+        # 布伦特原油 BZ=F
+        brent = yf.Ticker("BZ=F")
+        data["brent"] = brent.info.get("regularMarketPrice")
     except Exception as e:
-        print("原油获取异常",e)
+        print("拉取数据异常：", e)
+    return data
 
-    if alert_list:
-        content = "\n".join(alert_list)
-        send_wechat(content)
-        print("✅触发告警，微信推送已发送")
-    else:
-        print("✅ 当前所有指标正常，无警报")
+def check_alert(data):
+    alert_text = ""
+    v = data.get("vix")
+    u10 = data.get("us10y")
+    uj = data.get("usdjpy")
+    oil = data.get("brent")
+
+    if v and v > THRESHOLD["VIX"]:
+        alert_text += f"🔴 VIX恐慌指数 {v:.2f}，突破{THRESHOLD['VIX']}\n"
+    if u10 and u10 > THRESHOLD["US10Y"]:
+        alert_text += f"🔴 10年期美债收益率 {u10:.2f}，突破{THRESHOLD['US10Y']}\n"
+    if uj and uj > THRESHOLD["USDJPY_UP"]:
+        alert_text += f"🟡 USDJPY {uj:.2f}，突破160，日元干预预期升温\n"
+    if uj and uj < THRESHOLD["USDJPY_DROP"]:
+        alert_text += f"🔴 USDJPY {uj:.2f}，快速下跌，日元暴涨！警惕套息平仓\n"
+    if oil and oil > THRESHOLD["BRENT_OIL"]:
+        alert_text += f"🟡 布伦特原油 {oil:.2f}，高于阈值{THRESHOLD['BRENT_OIL']}\n"
+
+    return alert_text
 
 if __name__ == "__main__":
-    run_monitor()
+    print("开始拉取宏观指标...")
+    raw_data = fetch_data()
+    alert_msg = check_alert(raw_data)
+    if alert_msg:
+        print("发现警报：\n", alert_msg)
+        send_wechat_alert(alert_msg)
+    else:
+        print("✅ 当前所有指标正常，无警报")
