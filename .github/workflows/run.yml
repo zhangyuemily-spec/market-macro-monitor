@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=none
 name: Macro Monitor
 on:
   workflow_dispatch:
