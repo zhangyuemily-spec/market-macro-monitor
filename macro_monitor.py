@@ -5,7 +5,7 @@ from datetime import datetime, date
 
 # ========== 配置区 ==========
 # 替换webcal为https
-ICLOUD_ICS_URL = "https://p223-caldav.icloud.com.cn/published/2/MTk4OTExMjI4MDE5ODkxMVecXgvgLp3mCu0m-AmkklVyzGnbk2R0xMHimM9yE5XiFatgsSwexKksc_n8SgjjQAe3kVtHUz3jva7B9cGLbdA"
+ICLOUD_ICS_URL = "https://p223-caldav.icloud.com.cn/published/2/MTk4OTExMjI4MDE5ODkxMVecXgvgLp3mCu0m-AmkklX5BfW1BJtI0ev-y4K6sL8UrsRQVL4hohPdHoy5jLJZprsF_xieURxSJpSdZwP9N_4"
 SERVER_KEY = os.getenv("SERVER_SENDKEY")
 REMIND_DAY = 3  # 提前3天提醒
 # ============================
