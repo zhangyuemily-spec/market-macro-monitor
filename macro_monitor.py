@@ -9,7 +9,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 # ===================== 【这里修改你的阈值】=====================
 THRESHOLD = {
     "VIX": 28,          # VIX>28 触发警报
-    "US10Y": 5.2,       # ✅ 修改：10年期美债收益率>5.2才告警
+    "US10Y": 5,       # ✅ 修改：10年期美债收益率>5.2才告警
     "USDJPY_UP": 160,   # USDJPY突破160，日元偏弱，留意干预预期
     "USDJPY_DROP": 152, # USDJPY跌到152以下 = 日元快速大涨，套息平仓红色警报
     "BRENT_OIL": 110    # 布伦特原油高于110
